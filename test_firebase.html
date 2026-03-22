@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Firebase Test</title>
+</head>
+<body>
+    <h1>Firebase Data Test</h1>
+    <pre id="output">Testing Firebase...</pre>
+    <script>
+        fetch('https://smart-plant-detection-system-default-rtdb.asia-southeast1.firebasedatabase.app/plant.json')
+            .then(r => r.json())
+            .then(data => {
+                document.getElementById('output').textContent = JSON.stringify(data, null, 2);
+            })
+            .catch(e => {
+                document.getElementById('output').textContent = 'Error: ' + e.message;
+            });
+    </script>
+</body>
+</html>

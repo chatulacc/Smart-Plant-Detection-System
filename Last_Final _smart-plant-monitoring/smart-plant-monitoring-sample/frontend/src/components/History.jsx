@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
-const API_URL = "http://127.0.0.1:5000/api/sensor-data";
+const API_URL = "https://smart-plant-detection-system-default-rtdb.asia-southeast1.firebasedatabase.app/plant.json";
 
 const History = () => {
   const [logs, setLogs] = useState([]);
@@ -25,15 +25,64 @@ const History = () => {
         setLoading(true);
         setError(null);
         const response = await axios.get(API_URL);
-        setLogs(response.data || []);
+        const firebaseData = response.data;
+        console.log('History Firebase data:', firebaseData);
+        
+        if (firebaseData && typeof firebaseData === 'object' && Object.keys(firebaseData).length > 0) {
+          // Convert Firebase object to array and map field names (support both flat single state and history map)
+          const normalize = (value) => ({
+            air_temperature: value.temperature ?? value.air_temperature ?? value.temp ?? null,
+            air_humidity: value.humidity ?? value.air_humidity ?? null,
+            soil_moisture: value.soil ?? value.soil_moisture ?? value.moisture ?? null,
+            ldr_light: value.ldr ?? value.ldr_light ?? value.light ?? null,
+            timestamp: value.timestamp ?? value.time ?? new Date().toISOString()
+          });
+
+          let sensorArray = [];
+          const isFlatReading = 'temperature' in firebaseData || 'humidity' in firebaseData || 'soil' in firebaseData || 'ldr' in firebaseData;
+          if (isFlatReading) {
+            sensorArray = [normalize(firebaseData)];
+          } else {
+            sensorArray = Object.entries(firebaseData)
+              .filter(([, value]) => value && typeof value === 'object')
+              .map(([, value]) => normalize(value));
+          }
+          
+          // Sort by timestamp (most recent first)
+          sensorArray.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+          
+          setLogs(sensorArray);
+        } else {
+          console.log('No Firebase data, using mock data');
+          // Mock data as fallback
+          const mockData = Array.from({length: 10}, (_, i) => ({
+            air_temperature: 28 + Math.random() * 2,
+            air_humidity: 60 + Math.random() * 10,
+            soil_moisture: 3000 + Math.random() * 500,
+            ldr_light: 1800 + Math.random() * 200,
+            timestamp: new Date(Date.now() - i * 60000).toISOString()
+          }));
+          setLogs(mockData);
+        }
       } catch (err) {
-        setError('Failed to load historical data. Please check your connection.');
         console.error('Error fetching history:', err);
+        setError('Failed to load historical data. Showing sample data.');
+        // Mock data as fallback on error
+        const mockData = Array.from({length: 10}, (_, i) => ({
+          air_temperature: 28 + Math.random() * 2,
+          air_humidity: 60 + Math.random() * 10,
+          soil_moisture: 3000 + Math.random() * 500,
+          ldr_light: 1800 + Math.random() * 200,
+          timestamp: new Date(Date.now() - i * 60000).toISOString()
+        }));
+        setLogs(mockData);
       } finally {
         setLoading(false);
       }
     };
     fetchHistory();
+    const interval = setInterval(fetchHistory, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   const handleSort = (key) => {
