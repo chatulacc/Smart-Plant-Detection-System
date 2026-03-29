@@ -157,3 +157,28 @@ def get_data():
             ]
             return jsonify(mock_data)
 
+@sensor_bp.route('/control/<device>', methods=['POST'])
+def control_device(device):
+    if device not in ['fan', 'motor']: # Updated to match frontend 'motor'
+        return jsonify({'error': 'Invalid device. Use fan or motor'}), 400
+    
+    data = request.json
+    if data is None or 'state' not in data:
+        return jsonify({'error': 'Missing state value (0 or 1)'}), 400
+        
+    state = data['state']
+    
+    try:
+        # Standard REST API method to bypass service account constraints 
+        # Writing to the 'control' node as defined by the new frontend rules
+        firebase_url = f"https://smart-plant-detection-system-default-rtdb.asia-southeast1.firebasedatabase.app/control/{device}.json"
+        
+        import requests
+        response = requests.put(firebase_url, json=state, timeout=10)
+        
+        if response.status_code == 200:
+            return jsonify({'message': f'{device} updated to {state} via backend REST', 'status': 'success'})
+        else:
+            return jsonify({'error': f'REST API failed with status {response.status_code}'}), 500
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500

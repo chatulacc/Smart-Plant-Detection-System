@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { 
-  Search, 
-  Download, 
+import {
+  Search,
+  Download,
   Calendar,
   Filter,
   ArrowUpDown,
@@ -27,7 +27,7 @@ const History = () => {
         const response = await axios.get(API_URL);
         const firebaseData = response.data;
         console.log('History Firebase data:', firebaseData);
-        
+
         if (firebaseData && typeof firebaseData === 'object' && Object.keys(firebaseData).length > 0) {
           // Convert Firebase object to array and map field names (support both flat single state and history map)
           const normalize = (value) => ({
@@ -47,15 +47,15 @@ const History = () => {
               .filter(([, value]) => value && typeof value === 'object')
               .map(([, value]) => normalize(value));
           }
-          
+
           // Sort by timestamp (most recent first)
           sensorArray.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-          
+
           setLogs(sensorArray);
         } else {
           console.log('No Firebase data, using mock data');
           // Mock data as fallback
-          const mockData = Array.from({length: 10}, (_, i) => ({
+          const mockData = Array.from({ length: 10 }, (_, i) => ({
             air_temperature: 28 + Math.random() * 2,
             air_humidity: 60 + Math.random() * 10,
             soil_moisture: 3000 + Math.random() * 500,
@@ -68,7 +68,7 @@ const History = () => {
         console.error('Error fetching history:', err);
         setError('Failed to load historical data. Showing sample data.');
         // Mock data as fallback on error
-        const mockData = Array.from({length: 10}, (_, i) => ({
+        const mockData = Array.from({ length: 10 }, (_, i) => ({
           air_temperature: 28 + Math.random() * 2,
           air_humidity: 60 + Math.random() * 10,
           soil_moisture: 3000 + Math.random() * 500,
@@ -111,7 +111,7 @@ const History = () => {
 
   const filteredLogs = sortedLogs.filter(log => {
     if (!searchTerm) return true;
-    return Object.values(log).some(value => 
+    return Object.values(log).some(value =>
       value && value.toString().toLowerCase().includes(searchTerm.toLowerCase())
     );
   });
@@ -129,7 +129,7 @@ const History = () => {
         'OPTIMAL'
       ].join(','))
     ].join('\n');
-    
+
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
@@ -151,8 +151,8 @@ const History = () => {
     <>
       <header className="top-bar">
         <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-            <h1>Historical Logs</h1>
-            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Chronological record of sensor data</p>
+          <h1>Historical Logs</h1>
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Chronological record of sensor data</p>
         </div>
         <button className="sidebar-item" style={{ width: 'auto', gap: '8px', color: 'var(--brand-green)', background: 'var(--brand-green-soft)' }} onClick={exportToCSV}>
           <Download size={16} />
@@ -162,89 +162,89 @@ const History = () => {
 
       <div className="page-content" style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 80px)' }}>
         <div className="card" style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', padding: '0' }}>
-            <div style={{ padding: '24px', display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)' }}>
-                <div style={{ position: 'relative', width: '320px' }}>
-                    <Search size={16} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                    <input 
-                        type="text" 
-                        placeholder="Search logs..." 
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        style={{ width: '100%', background: 'var(--bg-base)', border: '1px solid var(--border)', borderRadius: '99px', padding: '10px 10px 10px 40px', fontSize: '0.85rem' }} 
-                    />
-                </div>
-                <div style={{ display: 'flex', gap: '12px' }}>
-                    <button className="sidebar-item" style={{ width: 'auto', border: '1px solid var(--border)' }}><Filter size={16} /> Filter</button>
-                    <button className="sidebar-item" style={{ width: 'auto', border: '1px solid var(--border)' }}><Calendar size={16} /> Date Range</button>
-                </div>
+          <div style={{ padding: '24px', display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)' }}>
+            <div style={{ position: 'relative', width: '320px' }}>
+              <Search size={16} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+              <input
+                type="text"
+                placeholder="Search logs..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                style={{ width: '100%', background: 'var(--bg-base)', border: '1px solid var(--border)', borderRadius: '99px', padding: '10px 10px 10px 40px', fontSize: '0.85rem' }}
+              />
             </div>
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button className="sidebar-item" style={{ width: 'auto', border: '1px solid var(--border)' }}><Filter size={16} /> Filter</button>
+              <button className="sidebar-item" style={{ width: 'auto', border: '1px solid var(--border)' }}><Calendar size={16} /> Date Range</button>
+            </div>
+          </div>
 
-            <div style={{ flex: 1, overflowY: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                    <thead style={{ position: 'sticky', top: 0, background: 'var(--bg-sidebar)', zIndex: 10 }}>
-                        <tr>
-                            <th style={thStyle} onClick={() => handleSort('timestamp')} style={{...thStyle, cursor: 'pointer'}}>
-                                Timestamp <ArrowUpDown size={12} />
-                            </th>
-                            <th style={thStyle} onClick={() => handleSort('soil_moisture')} style={{...thStyle, cursor: 'pointer'}}>
-                                Soil Moisture <ArrowUpDown size={12} />
-                            </th>
-                            <th style={thStyle} onClick={() => handleSort('air_temperature')} style={{...thStyle, cursor: 'pointer'}}>
-                                Temp <ArrowUpDown size={12} />
-                            </th>
-                            <th style={thStyle} onClick={() => handleSort('air_humidity')} style={{...thStyle, cursor: 'pointer'}}>
-                                Humidity <ArrowUpDown size={12} />
-                            </th>
-                            <th style={thStyle} onClick={() => handleSort('ldr_light')} style={{...thStyle, cursor: 'pointer'}}>
-                                Light <ArrowUpDown size={12} />
-                            </th>
-                            <th style={thStyle}>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {loading ? (
-                            <tr>
-                                <td colSpan="6" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
-                                    <div>Loading historical data...</div>
-                                </td>
-                            </tr>
-                        ) : error ? (
-                            <tr>
-                                <td colSpan="6" style={{ textAlign: 'center', padding: '40px', color: 'var(--error)' }}>
-                                    <div>{error}</div>
-                                </td>
-                            </tr>
-                        ) : filteredLogs.length === 0 ? (
-                            <tr>
-                                <td colSpan="6" style={{ textAlign: 'center', padding: '100px', color: 'var(--text-muted)' }}>
-                                    <HistIcon size={48} style={{ opacity: 0.1, marginBottom: '16px' }} />
-                                    <p>{searchTerm ? 'No records match your search.' : 'No historical records found for this period.'}</p>
-                                </td>
-                            </tr>
-                        ) : (
-                            filteredLogs.map((log, i) => (
-                                <tr key={i} style={trStyle}>
-                                    <td style={tdStyle}>{formatDate(log.timestamp)}</td>
-                                    <td style={tdStyle}>{log.soil_moisture ?? '--'}</td>
-                                    <td style={tdStyle}>{log.air_temperature ? `${log.air_temperature}°C` : '--'}</td>
-                                    <td style={tdStyle}>{log.air_humidity ? `${log.air_humidity}%` : '--'}</td>
-                                    <td style={tdStyle}>{log.ldr_light ? `${log.ldr_light} lux` : '--'}</td>
-                                    <td style={tdStyle}>
-                                        <span style={{ 
-                                            padding: '4px 10px', 
-                                            borderRadius: '99px', 
-                                            background: 'var(--brand-green-soft)', 
-                                            color: 'var(--brand-green)',
-                                            fontSize: '0.65rem',
-                                            fontWeight: '800'
-                                        }}>OPTIMAL</span>
-                                    </td>
-                                </tr>
-                            ))
-                        )}
-                    </tbody>
-                </table>
-            </div>
+          <div style={{ flex: 1, overflowY: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+              <thead style={{ position: 'sticky', top: 0, background: 'var(--bg-sidebar)', zIndex: 10 }}>
+                <tr>
+                  <th onClick={() => handleSort('timestamp')} style={{ ...thStyle, cursor: 'pointer' }}>
+                    Timestamp <ArrowUpDown size={12} />
+                  </th>
+                  <th onClick={() => handleSort('soil_moisture')} style={{ ...thStyle, cursor: 'pointer' }}>
+                    Soil Moisture <ArrowUpDown size={12} />
+                  </th>
+                  <th onClick={() => handleSort('air_temperature')} style={{ ...thStyle, cursor: 'pointer' }}>
+                    Temp <ArrowUpDown size={12} />
+                  </th>
+                  <th onClick={() => handleSort('air_humidity')} style={{ ...thStyle, cursor: 'pointer' }}>
+                    Humidity <ArrowUpDown size={12} />
+                  </th>
+                  <th onClick={() => handleSort('ldr_light')} style={{ ...thStyle, cursor: 'pointer' }}>
+                    Light <ArrowUpDown size={12} />
+                  </th>
+                  <th style={thStyle}>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {loading ? (
+                  <tr>
+                    <td colSpan="6" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                      <div>Loading historical data...</div>
+                    </td>
+                  </tr>
+                ) : error ? (
+                  <tr>
+                    <td colSpan="6" style={{ textAlign: 'center', padding: '40px', color: 'var(--error)' }}>
+                      <div>{error}</div>
+                    </td>
+                  </tr>
+                ) : filteredLogs.length === 0 ? (
+                  <tr>
+                    <td colSpan="6" style={{ textAlign: 'center', padding: '100px', color: 'var(--text-muted)' }}>
+                      <HistIcon size={48} style={{ opacity: 0.1, marginBottom: '16px' }} />
+                      <p>{searchTerm ? 'No records match your search.' : 'No historical records found for this period.'}</p>
+                    </td>
+                  </tr>
+                ) : (
+                  filteredLogs.map((log, i) => (
+                    <tr key={i} style={trStyle}>
+                      <td style={tdStyle}>{formatDate(log.timestamp)}</td>
+                      <td style={tdStyle}>{log.soil_moisture ?? '--'}</td>
+                      <td style={tdStyle}>{log.air_temperature ? `${log.air_temperature}°C` : '--'}</td>
+                      <td style={tdStyle}>{log.air_humidity ? `${log.air_humidity}%` : '--'}</td>
+                      <td style={tdStyle}>{log.ldr_light ? `${log.ldr_light} lux` : '--'}</td>
+                      <td style={tdStyle}>
+                        <span style={{
+                          padding: '4px 10px',
+                          borderRadius: '99px',
+                          background: 'var(--brand-green-soft)',
+                          color: 'var(--brand-green)',
+                          fontSize: '0.65rem',
+                          fontWeight: '800'
+                        }}>OPTIMAL</span>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </>

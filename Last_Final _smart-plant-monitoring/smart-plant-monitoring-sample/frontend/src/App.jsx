@@ -4,11 +4,11 @@ import Dashboard from './components/Dashboard';
 import SensorDetail from './components/SensorDetail';
 import History from './components/History';
 import Settings from './components/Settings';
-import { 
-  LayoutDashboard, 
-  Droplets, 
-  Thermometer, 
-  Wind, 
+import {
+  LayoutDashboard,
+  Droplets,
+  Thermometer,
+  Wind,
   Sun,
   History as HistoryIcon,
   Settings as SettingsIcon,
@@ -30,7 +30,7 @@ function App() {
       const response = await axios.get(API_URL);
       const firebaseData = response.data;
       console.log('Firebase data fetched:', firebaseData);
-      
+
       if (firebaseData && typeof firebaseData === 'object' && Object.keys(firebaseData).length > 0) {
         // Convert Firebase object to array and map field names (support both flat single state and history map)
         const normalize = (value) => ({
@@ -50,7 +50,7 @@ function App() {
             .filter(([, value]) => value && typeof value === 'object')
             .map(([, value]) => normalize(value));
         }
-        
+
         // Sort by timestamp (most recent first) and take latest 50
         sensorArray.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
         console.log('Processed sensor array:', sensorArray.length, 'entries');
@@ -123,7 +123,7 @@ function App() {
   }, []);
 
   const NavItem = ({ id, label, icon: Icon }) => (
-    <button 
+    <button
       className={`sidebar-item ${activePage === id ? 'active' : ''}`}
       onClick={() => setActivePage(id)}
     >
@@ -178,24 +178,24 @@ function App() {
       {/* ─── Main Content ─── */}
       <main className="main-content">
         {activePage === 'overview' && <Dashboard data={data} latest={latest} loading={loading} />}
-        
+
         {activePage === 'soil' && (
-          <SensorDetail 
-            type="Soil Moisture" 
-            value={latest.soil_moisture} 
-            unit="%" 
+          <SensorDetail
+            type="Soil Moisture"
+            value={latest.soil_moisture}
+            unit="%"
             data={data}
             metricKey="soil_moisture"
             color="var(--brand-green)"
             min={0} max={4095}
           />
         )}
-        
+
         {activePage === 'temp' && (
-          <SensorDetail 
-            type="Temperature" 
-            value={latest.air_temperature} 
-            unit="°C" 
+          <SensorDetail
+            type="Temperature"
+            value={latest.air_temperature}
+            unit="°C"
             data={data}
             metricKey="air_temperature"
             color="var(--brand-amber)"
@@ -204,10 +204,10 @@ function App() {
         )}
 
         {activePage === 'hum' && (
-          <SensorDetail 
-            type="Humidity" 
-            value={latest.air_humidity} 
-            unit="%" 
+          <SensorDetail
+            type="Humidity"
+            value={latest.air_humidity}
+            unit="%"
             data={data}
             metricKey="air_humidity"
             color="var(--brand-blue)"
@@ -216,10 +216,10 @@ function App() {
         )}
 
         {activePage === 'light' && (
-          <SensorDetail 
-            type="Light Intensity" 
-            value={latest.ldr_light} 
-            unit="lux" 
+          <SensorDetail
+            type="Light Intensity"
+            value={latest.ldr_light}
+            unit="lux"
             data={data}
             metricKey="ldr_light"
             color="var(--brand-purple)"
