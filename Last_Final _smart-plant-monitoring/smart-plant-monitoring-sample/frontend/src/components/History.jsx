@@ -1,275 +1,343 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import {
-  Search,
-  Download,
-  Calendar,
-  Filter,
-  ArrowUpDown,
-  History as HistIcon
+  Search, Download, Calendar, Filter, ArrowUpDown, History as HistIcon,
+  ArrowLeft, ArrowRight, CheckCircle, AlertCircle, AlertTriangle, Info
 } from 'lucide-react';
-import { motion } from 'framer-motion';
 
 const API_URL = "https://smart-plant-detection-system-default-rtdb.asia-southeast1.firebasedatabase.app/plant.json";
+const PAGE_SIZE = 10;
+
+/* ─── Status from sensor values ─── */
+function getRowStatus(log) {
+  const issues = [];
+  const { soil_moisture: sm, air_temperature: tmp, air_humidity: hum, ldr_light: ldr } = log;
+
+  if (sm  !== null && sm  < 30) issues.push({ type: 'critical', msg: 'Dry soil' });
+  if (sm  !== null && sm  > 85) issues.push({ type: 'warning',  msg: 'Wet soil' });
+  if (tmp !== null && tmp > 35) issues.push({ type: 'critical', msg: 'High temp' });
+  if (tmp !== null && tmp < 15) issues.push({ type: 'warning',  msg: 'Low temp' });
+  if (hum !== null && hum < 30) issues.push({ type: 'warning',  msg: 'Dry air' });
+  if (hum !== null && hum > 80) issues.push({ type: 'info',     msg: 'Humid' });
+  if (ldr !== null && ldr < 20) issues.push({ type: 'warning',  msg: 'Low light' });
+
+  if (issues.find(i => i.type === 'critical')) return { label: 'Alert',    cls: 'sev-critical', icon: AlertCircle };
+  if (issues.find(i => i.type === 'warning'))  return { label: 'Warning',  cls: 'sev-warning',  icon: AlertTriangle };
+  if (issues.find(i => i.type === 'info'))     return { label: 'Info',     cls: 'sev-info',     icon: Info };
+  return { label: 'Optimal', cls: 'sev-ok', icon: CheckCircle };
+}
+
+function cellClass(key, value) {
+  if (value === null || value === undefined) return '';
+  if (key === 'soil_moisture') {
+    if (value < 30) return 'cell-danger';
+    if (value < 50 || value > 80) return 'cell-warn';
+    return 'cell-ok';
+  }
+  if (key === 'air_temperature') {
+    if (value < 15 || value > 35) return 'cell-danger';
+    if (value < 18 || value > 32) return 'cell-warn';
+    return 'cell-ok';
+  }
+  if (key === 'air_humidity') {
+    if (value < 25 || value > 85) return 'cell-danger';
+    if (value < 35 || value > 75) return 'cell-warn';
+    return 'cell-ok';
+  }
+  if (key === 'ldr_light') {
+    if (value < 20) return 'cell-danger';
+    if (value < 35 || value > 90) return 'cell-warn';
+    return 'cell-ok';
+  }
+  return '';
+}
+
+const DATE_RANGES = ['All Time', 'Today', 'Last 7 Days', 'Last 30 Days'];
 
 const History = () => {
-  const [logs, setLogs] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [sortConfig, setSortConfig] = useState({ key: 'timestamp', direction: 'desc' });
+  const [logs, setLogs]           = useState([]);
+  const [loading, setLoading]     = useState(true);
+  const [searchTerm, setSearch]   = useState('');
+  const [sortConfig, setSort]     = useState({ key: 'timestamp', dir: 'desc' });
+  const [dateRange, setDateRange] = useState('All Time');
+  const [page, setPage]           = useState(1);
 
   useEffect(() => {
     const fetchHistory = async () => {
       try {
         setLoading(true);
-        setError(null);
-        const response = await axios.get(API_URL);
-        const firebaseData = response.data;
-        console.log('History Firebase data:', firebaseData);
+        const res = await axios.get(API_URL);
+        const fbData = res.data;
 
-        if (firebaseData && typeof firebaseData === 'object' && Object.keys(firebaseData).length > 0) {
-          // Convert Firebase object to array and map field names (support both flat single state and history map)
-          const normalize = (value) => ({
-            air_temperature: value.temperature ?? value.air_temperature ?? value.temp ?? null,
-            air_humidity: value.humidity ?? value.air_humidity ?? null,
-            soil_moisture: value.soil ?? value.soil_moisture ?? value.moisture ?? null,
-            ldr_light: value.ldr ?? value.ldr_light ?? value.light ?? null,
-            timestamp: value.timestamp ?? value.time ?? new Date().toISOString()
-          });
+        const normalize = (v) => ({
+          air_temperature: v.temperature ?? v.air_temperature ?? v.temp ?? null,
+          air_humidity:    v.humidity ?? v.air_humidity ?? null,
+          soil_moisture:   v.soil ?? v.soil_moisture ?? v.moisture ?? null,
+          ldr_light:       v.ldr ?? v.ldr_light ?? v.light ?? null,
+          timestamp:       v.timestamp ?? v.time ?? new Date().toISOString()
+        });
 
-          let sensorArray = [];
-          const isFlatReading = 'temperature' in firebaseData || 'humidity' in firebaseData || 'soil' in firebaseData || 'ldr' in firebaseData;
-          if (isFlatReading) {
-            sensorArray = [normalize(firebaseData)];
-          } else {
-            sensorArray = Object.entries(firebaseData)
-              .filter(([, value]) => value && typeof value === 'object')
-              .map(([, value]) => normalize(value));
-          }
-
-          // Sort by timestamp (most recent first)
-          sensorArray.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-
-          setLogs(sensorArray);
+        if (fbData && typeof fbData === 'object' && Object.keys(fbData).length > 0) {
+          const isFlat = 'temperature' in fbData || 'humidity' in fbData || 'soil' in fbData || 'ldr' in fbData;
+          const arr = isFlat
+            ? [normalize(fbData)]
+            : Object.entries(fbData)
+                .filter(([, v]) => v && typeof v === 'object')
+                .map(([, v]) => normalize(v));
+          arr.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+          setLogs(arr);
         } else {
-          console.log('No Firebase data, using mock data');
-          // Mock data as fallback
-          const mockData = Array.from({ length: 10 }, (_, i) => ({
-            air_temperature: 28 + Math.random() * 2,
-            air_humidity: 60 + Math.random() * 10,
-            soil_moisture: 3000 + Math.random() * 500,
-            ldr_light: 1800 + Math.random() * 200,
-            timestamp: new Date(Date.now() - i * 60000).toISOString()
-          }));
-          setLogs(mockData);
+          setLogs(generateMock());
         }
-      } catch (err) {
-        console.error('Error fetching history:', err);
-        setError('Failed to load historical data. Showing sample data.');
-        // Mock data as fallback on error
-        const mockData = Array.from({ length: 10 }, (_, i) => ({
-          air_temperature: 28 + Math.random() * 2,
-          air_humidity: 60 + Math.random() * 10,
-          soil_moisture: 3000 + Math.random() * 500,
-          ldr_light: 1800 + Math.random() * 200,
-          timestamp: new Date(Date.now() - i * 60000).toISOString()
-        }));
-        setLogs(mockData);
+      } catch {
+        setLogs(generateMock());
       } finally {
         setLoading(false);
       }
     };
+
     fetchHistory();
-    const interval = setInterval(fetchHistory, 5000);
-    return () => clearInterval(interval);
+    const iv = setInterval(fetchHistory, 5000);
+    return () => clearInterval(iv);
   }, []);
 
+  function generateMock() {
+    return Array.from({ length: 30 }, (_, i) => ({
+      air_temperature: 22 + Math.sin(i * 0.4) * 8,
+      air_humidity:    55 + Math.cos(i * 0.3) * 15,
+      soil_moisture:   50 + Math.sin(i * 0.6) * 25,
+      ldr_light:       60 + Math.cos(i * 0.5) * 25,
+      timestamp:       new Date(Date.now() - i * 120000).toISOString()
+    }));
+  }
+
   const handleSort = (key) => {
-    let direction = 'asc';
-    if (sortConfig.key === key && sortConfig.direction === 'asc') {
-      direction = 'desc';
-    }
-    setSortConfig({ key, direction });
+    setSort(s => ({ key, dir: s.key === key && s.dir === 'asc' ? 'desc' : 'asc' }));
+    setPage(1);
   };
 
-  const sortedLogs = React.useMemo(() => {
-    let sortableLogs = [...logs];
-    if (sortConfig !== null) {
-      sortableLogs.sort((a, b) => {
-        if (a[sortConfig.key] < b[sortConfig.key]) {
-          return sortConfig.direction === 'asc' ? -1 : 1;
-        }
-        if (a[sortConfig.key] > b[sortConfig.key]) {
-          return sortConfig.direction === 'asc' ? 1 : -1;
-        }
-        return 0;
-      });
-    }
-    return sortableLogs;
-  }, [logs, sortConfig]);
+  /* Filter by date range */
+  const dateFiltered = useMemo(() => {
+    const now = Date.now();
+    return logs.filter(log => {
+      const ms = new Date(log.timestamp).getTime();
+      if (dateRange === 'Today')       return now - ms < 24 * 3600000;
+      if (dateRange === 'Last 7 Days') return now - ms < 7 * 24 * 3600000;
+      if (dateRange === 'Last 30 Days')return now - ms < 30 * 24 * 3600000;
+      return true;
+    });
+  }, [logs, dateRange]);
 
-  const filteredLogs = sortedLogs.filter(log => {
-    if (!searchTerm) return true;
-    return Object.values(log).some(value =>
-      value && value.toString().toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  });
+  /* Search */
+  const searched = useMemo(() =>
+    searchTerm
+      ? dateFiltered.filter(log =>
+          Object.values(log).some(v => v && v.toString().toLowerCase().includes(searchTerm.toLowerCase()))
+        )
+      : dateFiltered,
+  [dateFiltered, searchTerm]);
 
-  const exportToCSV = () => {
-    const headers = ['Timestamp', 'Soil Moisture (%)', 'Temperature (°C)', 'Humidity (%)', 'Light (lux)', 'Status'];
-    const csvContent = [
-      headers.join(','),
-      ...filteredLogs.map(log => [
-        formatDate(log.timestamp),
-        log.soil_moisture || '',
-        log.air_temperature || '',
-        log.air_humidity || '',
-        log.ldr_light || '',
-        'OPTIMAL'
-      ].join(','))
-    ].join('\n');
+  /* Sort */
+  const sorted = useMemo(() => {
+    const arr = [...searched];
+    arr.sort((a, b) => {
+      const av = a[sortConfig.key], bv = b[sortConfig.key];
+      if (av < bv) return sortConfig.dir === 'asc' ? -1 : 1;
+      if (av > bv) return sortConfig.dir === 'asc' ? 1 : -1;
+      return 0;
+    });
+    return arr;
+  }, [searched, sortConfig]);
 
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  /* Paginate */
+  const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
+  const paginated  = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  /* CSV export */
+  const exportCSV = () => {
+    const headers = ['Timestamp', 'Soil Moisture (%)', 'Temperature (°C)', 'Humidity (%)', 'Light (%)', 'Status'];
+    const rows = sorted.map(l => [
+      formatDate(l.timestamp),
+      l.soil_moisture ?? '',
+      l.air_temperature ?? '',
+      l.air_humidity ?? '',
+      l.ldr_light ?? '',
+      getRowStatus(l).label
+    ].join(','));
+    const blob = new Blob([[headers.join(','), ...rows].join('\n')], { type: 'text/csv' });
     const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', `sensor-data-${new Date().toISOString().split('T')[0]}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
+    link.href = URL.createObjectURL(blob);
+    link.download = `greenhouse-log-${new Date().toISOString().split('T')[0]}.csv`;
     link.click();
-    document.body.removeChild(link);
   };
 
-  const formatDate = (isoStr) => {
-    if (!isoStr) return 'N/A';
-    const d = new Date(isoStr);
-    return d.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  const formatDate = (iso) => {
+    if (!iso) return 'N/A';
+    return new Date(iso).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
   };
+
+  const SortIcon = ({ field }) => (
+    <ArrowUpDown
+      size={11}
+      style={{ marginLeft: 4, color: sortConfig.key === field ? 'var(--brand-green)' : 'var(--text-muted)', flexShrink: 0 }}
+    />
+  );
 
   return (
     <>
       <header className="top-bar">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+        <div>
           <h1>Historical Logs</h1>
-          <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Chronological record of sensor data</p>
+          <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: 2 }}>
+            {sorted.length} total records · Page {page} of {totalPages}
+          </p>
         </div>
-        <button className="sidebar-item" style={{ width: 'auto', gap: '8px', color: 'var(--brand-green)', background: 'var(--brand-green-soft)' }} onClick={exportToCSV}>
-          <Download size={16} />
-          Export CSV
+        <button
+          className="sidebar-item"
+          style={{ width: 'auto', gap: 8, color: 'var(--brand-green)', background: 'var(--brand-green-soft)', border: '1px solid var(--brand-green)' }}
+          onClick={exportCSV}
+        >
+          <Download size={15} />Export CSV
         </button>
       </header>
 
-      <div className="page-content" style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 80px)' }}>
-        <div className="card" style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', padding: '0' }}>
-          <div style={{ padding: '24px', display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)' }}>
-            <div style={{ position: 'relative', width: '320px' }}>
-              <Search size={16} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-              <input
-                type="text"
-                placeholder="Search logs..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                style={{ width: '100%', background: 'var(--bg-base)', border: '1px solid var(--border)', borderRadius: '99px', padding: '10px 10px 10px 40px', fontSize: '0.85rem' }}
-              />
-            </div>
-            <div style={{ display: 'flex', gap: '12px' }}>
-              <button className="sidebar-item" style={{ width: 'auto', border: '1px solid var(--border)' }}><Filter size={16} /> Filter</button>
-              <button className="sidebar-item" style={{ width: 'auto', border: '1px solid var(--border)' }}><Calendar size={16} /> Date Range</button>
-            </div>
+      <div className="page-content">
+        {/* Filters bar */}
+        <div style={{
+          display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap',
+          marginBottom: 20, padding: '16px 20px',
+          background: 'var(--bg-card)', borderRadius: 'var(--radius-md)',
+          border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)'
+        }}>
+          {/* Search */}
+          <div className="search-input-wrap" style={{ flex: 1, minWidth: 200 }}>
+            <Search size={15} className="search-icon" />
+            <input
+              type="text"
+              className="search-input"
+              placeholder="Search logs..."
+              value={searchTerm}
+              onChange={e => { setSearch(e.target.value); setPage(1); }}
+            />
           </div>
 
-          <div style={{ flex: 1, overflowY: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-              <thead style={{ position: 'sticky', top: 0, background: 'var(--bg-sidebar)', zIndex: 10 }}>
+          {/* Date range tabs */}
+          <div style={{ display: 'flex', gap: 4, background: 'var(--bg-muted)', borderRadius: 8, padding: 4 }}>
+            {DATE_RANGES.map(r => (
+              <button
+                key={r}
+                className={`time-tab ${dateRange === r ? 'active' : ''}`}
+                onClick={() => { setDateRange(r); setPage(1); }}
+              >
+                {r}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Table */}
+        <div style={{ background: 'var(--bg-card)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)', overflow: 'hidden' }}>
+          <div style={{ overflowX: 'auto' }}>
+            <table className="history-table">
+              <thead>
                 <tr>
-                  <th onClick={() => handleSort('timestamp')} style={{ ...thStyle, cursor: 'pointer' }}>
-                    Timestamp <ArrowUpDown size={12} />
+                  <th onClick={() => handleSort('timestamp')} style={{ cursor: 'pointer' }}>
+                    <span style={{ display: 'flex', alignItems: 'center' }}>Timestamp <SortIcon field="timestamp" /></span>
                   </th>
-                  <th onClick={() => handleSort('soil_moisture')} style={{ ...thStyle, cursor: 'pointer' }}>
-                    Soil Moisture <ArrowUpDown size={12} />
+                  <th onClick={() => handleSort('soil_moisture')} style={{ cursor: 'pointer' }}>
+                    <span style={{ display: 'flex', alignItems: 'center' }}>Soil Moisture <SortIcon field="soil_moisture" /></span>
                   </th>
-                  <th onClick={() => handleSort('air_temperature')} style={{ ...thStyle, cursor: 'pointer' }}>
-                    Temp <ArrowUpDown size={12} />
+                  <th onClick={() => handleSort('air_temperature')} style={{ cursor: 'pointer' }}>
+                    <span style={{ display: 'flex', alignItems: 'center' }}>Temperature <SortIcon field="air_temperature" /></span>
                   </th>
-                  <th onClick={() => handleSort('air_humidity')} style={{ ...thStyle, cursor: 'pointer' }}>
-                    Humidity <ArrowUpDown size={12} />
+                  <th onClick={() => handleSort('air_humidity')} style={{ cursor: 'pointer' }}>
+                    <span style={{ display: 'flex', alignItems: 'center' }}>Humidity <SortIcon field="air_humidity" /></span>
                   </th>
-                  <th onClick={() => handleSort('ldr_light')} style={{ ...thStyle, cursor: 'pointer' }}>
-                    Light <ArrowUpDown size={12} />
+                  <th onClick={() => handleSort('ldr_light')} style={{ cursor: 'pointer' }}>
+                    <span style={{ display: 'flex', alignItems: 'center' }}>Light <SortIcon field="ldr_light" /></span>
                   </th>
-                  <th style={thStyle}>Status</th>
+                  <th>Status</th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
+                  Array.from({ length: 6 }).map((_, i) => (
+                    <tr key={i}>
+                      {[1,2,3,4,5,6].map(j => (
+                        <td key={j}><div className="skeleton" style={{ height: 12, borderRadius: 6 }} /></td>
+                      ))}
+                    </tr>
+                  ))
+                ) : paginated.length === 0 ? (
                   <tr>
-                    <td colSpan="6" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
-                      <div>Loading historical data...</div>
-                    </td>
-                  </tr>
-                ) : error ? (
-                  <tr>
-                    <td colSpan="6" style={{ textAlign: 'center', padding: '40px', color: 'var(--error)' }}>
-                      <div>{error}</div>
-                    </td>
-                  </tr>
-                ) : filteredLogs.length === 0 ? (
-                  <tr>
-                    <td colSpan="6" style={{ textAlign: 'center', padding: '100px', color: 'var(--text-muted)' }}>
-                      <HistIcon size={48} style={{ opacity: 0.1, marginBottom: '16px' }} />
-                      <p>{searchTerm ? 'No records match your search.' : 'No historical records found for this period.'}</p>
+                    <td colSpan="6">
+                      <div className="empty-state">
+                        <HistIcon size={40} style={{ opacity: 0.2 }} />
+                        <p>{searchTerm ? 'No records match your search.' : 'No records found for the selected period.'}</p>
+                      </div>
                     </td>
                   </tr>
                 ) : (
-                  filteredLogs.map((log, i) => (
-                    <tr key={i} style={trStyle}>
-                      <td style={tdStyle}>{formatDate(log.timestamp)}</td>
-                      <td style={tdStyle}>{log.soil_moisture ?? '--'}</td>
-                      <td style={tdStyle}>{log.air_temperature ? `${log.air_temperature}°C` : '--'}</td>
-                      <td style={tdStyle}>{log.air_humidity ? `${log.air_humidity}%` : '--'}</td>
-                      <td style={tdStyle}>{log.ldr_light ? `${log.ldr_light} lux` : '--'}</td>
-                      <td style={tdStyle}>
-                        <span style={{
-                          padding: '4px 10px',
-                          borderRadius: '99px',
-                          background: 'var(--brand-green-soft)',
-                          color: 'var(--brand-green)',
-                          fontSize: '0.65rem',
-                          fontWeight: '800'
-                        }}>OPTIMAL</span>
-                      </td>
-                    </tr>
-                  ))
+                  paginated.map((log, i) => {
+                    const status = getRowStatus(log);
+                    const StatusIcon = status.icon;
+                    return (
+                      <tr key={i}>
+                        <td>{formatDate(log.timestamp)}</td>
+                        <td className={cellClass('soil_moisture', log.soil_moisture)}>
+                          {log.soil_moisture !== null ? `${Number(log.soil_moisture).toFixed(1)}%` : '--'}
+                        </td>
+                        <td className={cellClass('air_temperature', log.air_temperature)}>
+                          {log.air_temperature !== null ? `${Number(log.air_temperature).toFixed(1)}°C` : '--'}
+                        </td>
+                        <td className={cellClass('air_humidity', log.air_humidity)}>
+                          {log.air_humidity !== null ? `${Number(log.air_humidity).toFixed(1)}%` : '--'}
+                        </td>
+                        <td className={cellClass('ldr_light', log.ldr_light)}>
+                          {log.ldr_light !== null ? `${Number(log.ldr_light).toFixed(1)}%` : '--'}
+                        </td>
+                        <td>
+                          <span className={`status-badge ${status.cls}`}>
+                            <StatusIcon size={10} />
+                            {status.label}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
           </div>
+
+          {/* Pagination */}
+          {!loading && sorted.length > PAGE_SIZE && (
+            <div className="pagination">
+              <span className="pagination-info">
+                Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, sorted.length)} of {sorted.length} records
+              </span>
+              <div className="pagination-btns">
+                <button className="page-btn" onClick={() => setPage(1)} disabled={page === 1}>«</button>
+                <button className="page-btn" onClick={() => setPage(p => p - 1)} disabled={page === 1}>
+                  <ArrowLeft size={13} />
+                </button>
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  const p = Math.max(1, Math.min(totalPages - 4, page - 2)) + i;
+                  return (
+                    <button key={p} className={`page-btn ${page === p ? 'active' : ''}`} onClick={() => setPage(p)}>{p}</button>
+                  );
+                })}
+                <button className="page-btn" onClick={() => setPage(p => p + 1)} disabled={page === totalPages}>
+                  <ArrowRight size={13} />
+                </button>
+                <button className="page-btn" onClick={() => setPage(totalPages)} disabled={page === totalPages}>»</button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </>
   );
-};
-
-const thStyle = {
-  padding: '16px 24px',
-  fontSize: '0.7rem',
-  fontWeight: '700',
-  color: 'var(--text-muted)',
-  textTransform: 'uppercase',
-  letterSpacing: '0.05em',
-  borderBottom: '1px solid var(--border)'
-};
-
-const trStyle = {
-  borderBottom: '1px solid var(--border)',
-};
-
-const tdStyle = {
-  padding: '16px 24px',
-  fontSize: '0.85rem',
-  color: 'var(--text-primary)',
-  fontWeight: '500'
 };
 
 export default History;
