@@ -3,3 +3,6 @@ flask-cors
 firebase-admin
 python-dotenv
 requests
+scikit-learn
+numpy
+joblib

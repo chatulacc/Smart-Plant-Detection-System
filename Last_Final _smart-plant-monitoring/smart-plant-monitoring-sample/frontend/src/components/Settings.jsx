@@ -68,18 +68,42 @@ const ThresholdRow = ({ sensor, unit, minVal, maxVal, onMinChange, onMaxChange }
 
 /* ─── Main ─── */
 const Settings = () => {
-  const [toggles, setToggles] = useState({
-    smartAlerts: true,
-    highPrecision: false,
-    calibrationLock: true,
-    autoWater: false,
+  const [toggles, setToggles] = useState(() => {
+    try {
+      const saved = localStorage.getItem('ps-toggles');
+      return saved ? JSON.parse(saved) : {
+        smartAlerts: true,
+        highPrecision: false,
+        calibrationLock: true,
+        autoWater: false,
+      };
+    } catch {
+      return {
+        smartAlerts: true,
+        highPrecision: false,
+        calibrationLock: true,
+        autoWater: false,
+      };
+    }
   });
 
-  const [thresholds, setThresholds] = useState({
-    soil:  { min: 30, max: 80 },
-    temp:  { min: 18, max: 32 },
-    hum:   { min: 35, max: 75 },
-    light: { min: 20, max: 90 },
+  const [thresholds, setThresholds] = useState(() => {
+    try {
+      const saved = localStorage.getItem('ps-thresholds');
+      return saved ? JSON.parse(saved) : {
+        soil:  { min: 30, max: 80 },
+        temp:  { min: 18, max: 32 },
+        hum:   { min: 35, max: 75 },
+        light: { min: 20, max: 90 },
+      };
+    } catch {
+      return {
+        soil:  { min: 30, max: 80 },
+        temp:  { min: 18, max: 32 },
+        hum:   { min: 35, max: 75 },
+        light: { min: 20, max: 90 },
+      };
+    }
   });
 
   const [toast, setToast] = useState(null);

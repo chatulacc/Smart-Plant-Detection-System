@@ -134,7 +134,7 @@ const DeviceCard = ({ name, desc, icon: Icon, device, isOn, onToggle, activeColo
 );
 
 /* ─── Main Dashboard ─── */
-const Dashboard = ({ data, latest, loading }) => {
+const Dashboard = ({ data, latest, loading, aiPrediction }) => {
   const [controls, setControls] = useState({ fan: 0, pump: 0 });
   const [activity, setActivity] = useState([]);
 
@@ -338,6 +338,38 @@ const Dashboard = ({ data, latest, loading }) => {
             </div>
           </motion.div>
         </div>
+
+        {/* ─── AI Prediction Banner ─── */}
+        {aiPrediction && (
+          <motion.div
+            initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
+            className="card"
+            style={{ 
+              marginBottom: '20px', 
+              borderLeft: `4px solid ${aiPrediction.state === 1 ? 'var(--brand-green)' : 'var(--text-muted)'}`,
+              padding: '16px 20px',
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+            }}
+          >
+            <div>
+              <h3 style={{ fontSize: '0.98rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Activity size={18} color="var(--brand-blue)" />
+                AI Irrigation Model
+              </h3>
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: 4 }}>
+                Real-time pump prediction based on live sensor feed
+              </p>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontSize: '1.25rem', fontWeight: 800, color: aiPrediction.state === 1 ? 'var(--brand-green)' : 'var(--text-muted)' }}>
+                {aiPrediction.state === 1 ? '💧 PUMP ON' : '🔴 PUMP OFF'}
+              </div>
+              <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--brand-blue)', marginTop: 2 }}>
+                Model Confidence: {(aiPrediction.confidence * 100).toFixed(1)}%
+              </div>
+            </div>
+          </motion.div>
+        )}
 
         {/* ─── Device Controls ─── */}
         <div className="device-grid" style={{ marginBottom: '20px' }}>

@@ -2,6 +2,9 @@ from flask import Blueprint, request, jsonify
 from datetime import datetime, timedelta
 from firebase_config import initialize_firebase, get_db_ref
 import requests
+import joblib
+import numpy as np
+from pathlib import Path
 
 sensor_bp = Blueprint('sensor_bp', __name__)
 
@@ -156,6 +159,43 @@ def get_data():
                 }
             ]
             return jsonify(mock_data)
+
+@sensor_bp.route('/predict-pump', methods=['POST'])
+def predict_pump():
+    data = request.json
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+        
+    soil_moisture = data.get('soil_moisture')
+    temperature = data.get('temperature')
+    humidity = data.get('humidity')
+    
+    if None in [soil_moisture, temperature, humidity]:
+        return jsonify({'error': 'Missing required sensor data'}), 400
+        
+    try:
+        # Load model and scaler
+        model_dir = Path(__file__).resolve().parent.parent.parent / 'Model'
+        model = joblib.load(model_dir / 'water_pump_model.pkl')
+        scaler = joblib.load(model_dir / 'scaler.pkl')
+        
+        # Prepare input
+        X = np.array([[soil_moisture, temperature, humidity]])
+        X_scaled = scaler.transform(X)
+        
+        # Make prediction
+        prediction = model.predict(X_scaled)[0]
+        probability = max(model.predict_proba(X_scaled)[0])
+        status = "Pump ON" if prediction == 1 else "Pump OFF"
+        
+        return jsonify({
+            'prediction': int(prediction),
+            'confidence': float(probability),
+            'status': status
+        })
+    except Exception as e:
+        print(f"Error making prediction: {e}")
+        return jsonify({'error': str(e)}), 500
 
 @sensor_bp.route('/control/<device>', methods=['POST'])
 def control_device(device):

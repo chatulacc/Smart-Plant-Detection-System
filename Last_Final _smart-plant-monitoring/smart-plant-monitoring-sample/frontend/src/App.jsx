@@ -57,6 +57,7 @@ function App() {
   const [readAlerts, setReadAlerts] = useState(() => {
     try { return JSON.parse(localStorage.getItem('ps-read-alerts') || '[]'); } catch { return []; }
   });
+  const [aiPrediction, setAiPrediction] = useState(null);
 
   // Apply theme to document
   useEffect(() => {
@@ -137,6 +138,53 @@ function App() {
   const unreadCount = alerts.filter(a => !readAlerts.includes(a.id)).length;
 
   const latest = data.length > 0 ? data[0] : { soil_moisture: null, air_temperature: null, air_humidity: null, ldr_light: null };
+
+  // --- Auto-Watering Integration ---
+  useEffect(() => {
+    const handleAutoWatering = async () => {
+      try {
+        if (latest.soil_moisture === null || latest.air_temperature === null || latest.air_humidity === null) return;
+        
+        // 1. Get prediction from Python backend model ALWAYS
+        const response = await axios.post('http://127.0.0.1:5000/api/predict-pump', {
+          soil_moisture: latest.soil_moisture,
+          temperature: latest.air_temperature,
+          humidity: latest.air_humidity
+        });
+        
+        const predictedState = response.data.prediction; // 1 (ON) or 0 (OFF)
+        setAiPrediction({
+          state: predictedState,
+          confidence: response.data.confidence,
+          status: response.data.status
+        });
+        
+        // 2. Check if Auto-Watering is turned on before commanding physical hardware
+        const toggles = JSON.parse(localStorage.getItem('ps-toggles') || '{}');
+        if (!toggles.autoWater) return; 
+        
+        // 3. Update Firebase directly (updating both UI pump and generic motor paths)
+        // Update plant/pump (used by Dashboard.jsx)
+        await fetch(`https://smart-plant-detection-system-default-rtdb.asia-southeast1.firebasedatabase.app/plant/pump.json`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(predictedState)
+        });
+        
+        // Update control/motor (used by ESP32 via backend routes)
+        await fetch(`https://smart-plant-detection-system-default-rtdb.asia-southeast1.firebasedatabase.app/control/motor.json`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(predictedState)
+        });
+        
+      } catch (err) {
+        console.error("Auto-watering prediction or control failed:", err);
+      }
+    };
+
+    handleAutoWatering();
+  }, [latest.timestamp, latest.soil_moisture, latest.air_temperature, latest.air_humidity]);
 
   const navigate = (page) => {
     setActivePage(page);
@@ -252,7 +300,7 @@ function App() {
         </header>
 
         {/* Page content */}
-        {activePage === 'overview' && <Dashboard data={data} latest={latest} loading={loading} />}
+        {activePage === 'overview' && <Dashboard data={data} latest={latest} loading={loading} aiPrediction={aiPrediction} />}
 
         {activePage === 'soil' && (
           <SensorDetail
