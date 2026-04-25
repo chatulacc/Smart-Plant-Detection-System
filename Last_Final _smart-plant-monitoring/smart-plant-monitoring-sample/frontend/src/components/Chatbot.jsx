@@ -579,7 +579,7 @@ export default function Chatbot({ latest, aiInsights, activePage }) {
             <div className="chat-header-title">GreenSense AI</div>
             <div className="chat-header-sub">
               <span className="chat-online-dot" />
-              Powered by Gemini 1.5 Flash · TARP Dataset
+              online
             </div>
           </div>
           <div className="chat-header-actions">
