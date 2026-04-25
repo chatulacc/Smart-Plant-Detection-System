@@ -6,6 +6,7 @@ import History from './components/History';
 import Settings from './components/Settings';
 import Notifications from './components/Notifications';
 import Analytics from './components/Analytics';
+import Chatbot from './components/Chatbot';
 import {
   LayoutDashboard, Droplets, Thermometer, Wind, Sun,
   History as HistoryIcon, Settings as SettingsIcon,
@@ -443,6 +444,13 @@ function App() {
         {activePage === 'analytics' && <Analytics />}
         {activePage === 'settings' && <Settings onSave={() => syncSettings()} />}
       </main>
+
+      {/* ─── Global AI Chatbot (always visible, floats over all pages) ─── */}
+      <Chatbot
+        latest={latest}
+        aiInsights={aiInsights}
+        activePage={activePage}
+      />
     </div>
   );
 }

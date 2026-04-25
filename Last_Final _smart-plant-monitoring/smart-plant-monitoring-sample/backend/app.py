@@ -2,6 +2,7 @@ from flask import Flask
 from flask_cors import CORS
 from routes.sensor_routes import sensor_bp
 from routes.analytics_routes import analytics_bp
+from routes.chatbot_routes import chatbot_bp
 
 app = Flask(__name__)
 # Enable CORS for all routes
@@ -10,6 +11,7 @@ CORS(app)
 # Register blueprints
 app.register_blueprint(sensor_bp, url_prefix='/api')
 app.register_blueprint(analytics_bp, url_prefix='/api')
+app.register_blueprint(chatbot_bp, url_prefix='/api')
 
 @app.route('/')
 def home():
