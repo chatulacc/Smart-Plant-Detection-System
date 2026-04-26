@@ -67,7 +67,16 @@ def get_ml_insights():
     df = fetch_historical_data()
     
     if df is None or len(df) < 5:
-        return jsonify({'error': 'Insufficient data for ML analysis (need at least 5 points)'}), 400
+        # Return 200 with a graceful placeholder so the frontend poller doesn't log hard errors
+        return jsonify({
+            'status': 'waiting',
+            'message': 'Collecting data — need at least 5 sensor readings for ML analysis.',
+            'forecasting': {'air_temperature': None, 'air_temperature_trend': 'unknown', 'soil_moisture': None, 'soil_moisture_trend': 'unknown'},
+            'anomalies': {'count': 0, 'is_anomalous': False, 'confidence': 0},
+            'correlation': {},
+            'refined_bounds': {},
+            'summary': 'Waiting for sufficient Firebase data (need 5+ readings).'
+        }), 200
 
     # Sort by timestamp if available
     if 'timestamp' in df.columns:
