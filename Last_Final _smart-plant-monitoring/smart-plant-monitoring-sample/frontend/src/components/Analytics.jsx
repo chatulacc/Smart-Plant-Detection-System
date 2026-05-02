@@ -45,7 +45,7 @@ const Analytics = () => {
     }
   };
 
-  const FIREBASE_URL = 'https://smart-plant-detection-system-default-rtdb.asia-southeast1.firebasedatabase.app/plant.json';
+  const FIREBASE_URL = 'https://plant-b5ffc-default-rtdb.asia-southeast1.firebasedatabase.app/plant.json';
 
   const normalizeRecord = (v) => ({
     air_temperature: v.temperature ?? v.air_temperature ?? v.temp ?? null,

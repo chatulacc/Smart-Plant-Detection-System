@@ -5,7 +5,7 @@ import {
   ArrowLeft, ArrowRight, CheckCircle, AlertCircle, AlertTriangle, Info
 } from 'lucide-react';
 
-const API_URL = "https://smart-plant-detection-system-default-rtdb.asia-southeast1.firebasedatabase.app/plant.json";
+const API_URL = "https://plant-b5ffc-default-rtdb.asia-southeast1.firebasedatabase.app/plant.json";
 const PAGE_SIZE = 10;
 
 /* ─── Status from sensor values ─── */

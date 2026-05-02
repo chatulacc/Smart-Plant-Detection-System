@@ -182,7 +182,7 @@ const Dashboard = ({ data, latest, loading, aiPrediction, thresholds }) => {
       await set(deviceRef, next);
     } catch {
       try {
-        const url = `https://smart-plant-detection-system-default-rtdb.asia-southeast1.firebasedatabase.app/plant/${device}.json`;
+        const url = `https://plant-b5ffc-default-rtdb.asia-southeast1.firebasedatabase.app/plant/${device}.json`;
         const res = await fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(next) });
         if (!res.ok) throw new Error();
       } catch {

@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import './index.css';
 
-const API_URL = "https://smart-plant-detection-system-default-rtdb.asia-southeast1.firebasedatabase.app/plant.json";
+const API_URL = "https://plant-b5ffc-default-rtdb.asia-southeast1.firebasedatabase.app/plant.json";
 
 // Utility: generate alert events from sensor data
 function generateAlerts(data, thresholds, aiInsights) {
@@ -257,14 +257,14 @@ function App() {
         
         // 3. Update Firebase directly (updating both UI pump and generic motor paths)
         // Update plant/pump (used by Dashboard.jsx)
-        await fetch(`https://smart-plant-detection-system-default-rtdb.asia-southeast1.firebasedatabase.app/plant/pump.json`, {
+        await fetch(`https://plant-b5ffc-default-rtdb.asia-southeast1.firebasedatabase.app/plant/pump.json`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(predictedState)
         });
         
         // Update control/motor (used by ESP32 via backend routes)
-        await fetch(`https://smart-plant-detection-system-default-rtdb.asia-southeast1.firebasedatabase.app/control/motor.json`, {
+        await fetch(`https://plant-b5ffc-default-rtdb.asia-southeast1.firebasedatabase.app/control/motor.json`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(predictedState)

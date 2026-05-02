@@ -66,7 +66,7 @@ def get_data():
     
     # Try Firebase REST API first (works even with auth issues if rules allow public read)
     try:
-        firebase_url = "https://smart-plant-detection-system-default-rtdb.asia-southeast1.firebasedatabase.app/plant.json"
+        firebase_url = "https://plant-b5ffc-default-rtdb.asia-southeast1.firebasedatabase.app/plant.json"
         print(f"Attempting Firebase REST API call to: {firebase_url}")
         response = requests.get(firebase_url, timeout=10)
         print(f"Firebase REST API response status: {response.status_code}")
@@ -241,7 +241,7 @@ def control_device(device):
     try:
         # Standard REST API method to bypass service account constraints 
         # Writing to the 'control' node as defined by the new frontend rules
-        firebase_url = f"https://smart-plant-detection-system-default-rtdb.asia-southeast1.firebasedatabase.app/control/{device}.json"
+        firebase_url = f"https://plant-b5ffc-default-rtdb.asia-southeast1.firebasedatabase.app/control/{device}.json"
         
         import requests
         response = requests.put(firebase_url, json=state, timeout=10)

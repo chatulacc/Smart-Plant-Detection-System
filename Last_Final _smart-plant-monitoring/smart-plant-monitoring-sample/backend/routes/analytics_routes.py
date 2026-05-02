@@ -11,7 +11,7 @@ import joblib
 analytics_bp = Blueprint('analytics_bp', __name__)
 
 # Firebase URL for historical data
-FIREBASE_URL = "https://smart-plant-detection-system-default-rtdb.asia-southeast1.firebasedatabase.app/plant.json"
+FIREBASE_URL = "https://plant-b5ffc-default-rtdb.asia-southeast1.firebasedatabase.app/plant.json"
 
 def fetch_historical_data():
     """Fetch last 20 entries from Firebase for analysis"""
