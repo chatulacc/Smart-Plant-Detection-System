@@ -1,5 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
+import { database } from './firebase';
+import { ref, onValue, off } from 'firebase/database';
 import Dashboard from './components/Dashboard';
 import SensorDetail from './components/SensorDetail';
 import History from './components/History';
@@ -14,7 +16,6 @@ import {
 } from 'lucide-react';
 import './index.css';
 
-const API_URL = "https://plant-b5ffc-default-rtdb.asia-southeast1.firebasedatabase.app/plant.json";
 
 // Utility: generate alert events from sensor data
 function generateAlerts(data, thresholds, aiInsights) {
@@ -153,50 +154,55 @@ function App() {
     }
   }, []);
 
-  const fetchData = useCallback(async () => {
-    try {
-      const response = await axios.get(API_URL);
-      const firebaseData = response.data;
-      setIsOnline(true);
+  // Keep a ref to latest thresholds/aiInsights so the Firebase listener can use them
+  // without needing to re-subscribe every time they change
+  const thresholdsRef = useRef(thresholds);
+  const aiInsightsRef = useRef(aiInsights);
+  useEffect(() => { thresholdsRef.current = thresholds; }, [thresholds]);
+  useEffect(() => { aiInsightsRef.current = aiInsights; }, [aiInsights]);
 
-      if (firebaseData && typeof firebaseData === 'object' && Object.keys(firebaseData).length > 0) {
-        // Accommodate nested push-style readings (e.g. plant.readings.{pushId: {...}})
-        let source = firebaseData;
-        if (firebaseData.readings && typeof firebaseData.readings === 'object') {
-          source = firebaseData.readings;
-        }
-
-        let sensorArray = [];
-        const isFlatReading = 'temperature' in source || 'humidity' in source || 'soil' in source || 'ldr' in source;
-        if (isFlatReading) {
-          sensorArray = [normalize(source)];
-        } else {
-          sensorArray = Object.entries(source)
-            .filter(([, value]) => value && typeof value === 'object')
-            .map(([, value]) => normalize(value));
-        }
-
-        sensorArray.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-        const sliced = sensorArray.slice(0, 20);
-        setData(sliced);
-        setAlerts(generateAlerts(sliced, thresholds, aiInsights));
-        setLastUpdated(new Date());
-      } else {
-        const mockData = generateMockData();
-        setData(mockData);
-        setAlerts(generateAlerts(mockData, thresholds, aiInsights));
-        setLastUpdated(new Date());
-      }
-      setLoading(false);
-    } catch {
-      setIsOnline(false);
-      const mockData = generateMockData();
-      setData(mockData);
-      setAlerts(generateAlerts(mockData, thresholds, aiInsights));
-      setLoading(false);
-      setLastUpdated(new Date());
+  const processFirebaseData = useCallback((firebaseData) => {
+    if (!firebaseData || typeof firebaseData !== 'object' || Object.keys(firebaseData).length === 0) {
+      return null;
     }
-  }, [thresholds, aiInsights]);
+
+    // If the top-level IS a flat sensor reading (e.g. plant/temperature directly)
+    const isFlatReading = 'temperature' in firebaseData || 'humidity' in firebaseData ||
+                          'soil' in firebaseData || 'ldr' in firebaseData ||
+                          'air_temperature' in firebaseData || 'air_humidity' in firebaseData;
+    if (isFlatReading) {
+      return [normalize(firebaseData)];
+    }
+
+    // Non-sensor control keys to skip at the top level
+    const SKIP_KEYS = new Set(['fan', 'pump', 'motor']);
+    let sensorArray = [];
+
+    for (const [key, value] of Object.entries(firebaseData)) {
+      if (!value || typeof value !== 'object') continue;
+
+      if (key === 'readings') {
+        // Process push-keyed entries inside readings sub-node
+        for (const [, reading] of Object.entries(value)) {
+          if (reading && typeof reading === 'object') {
+            sensorArray.push(normalize(reading));
+          }
+        }
+      } else if (!SKIP_KEYS.has(key)) {
+        // Push-keyed sensor entry at plant/ level
+        sensorArray.push(normalize(value));
+      }
+    }
+
+    // Drop entries that have no sensor values at all
+    sensorArray = sensorArray.filter(d =>
+      d.air_temperature !== null || d.air_humidity !== null ||
+      d.soil_moisture !== null || d.ldr_light !== null
+    );
+
+    sensorArray.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    return sensorArray.length > 0 ? sensorArray.slice(0, 20) : null;
+  }, []);
 
   function generateMockData() {
     return Array.from({ length: 20 }, (_, i) => ({
@@ -209,15 +215,45 @@ function App() {
   }
 
   useEffect(() => {
-    fetchData();
-    fetchAiInsights(); // Initial AI pull
-    const intervalData = setInterval(fetchData, 5000);
-    const intervalAI = setInterval(fetchAiInsights, 15000); // AI every 15s
+    const plantRef = ref(database, 'plant');
+
+    const unsubscribe = onValue(
+      plantRef,
+      (snapshot) => {
+        const firebaseData = snapshot.val();
+        const sensorArray = processFirebaseData(firebaseData);
+        if (sensorArray && sensorArray.length > 0) {
+          setData(sensorArray);
+          setAlerts(generateAlerts(sensorArray, thresholdsRef.current, aiInsightsRef.current));
+          setIsOnline(true);
+        } else {
+          const mockData = generateMockData();
+          setData(mockData);
+          setAlerts(generateAlerts(mockData, thresholdsRef.current, aiInsightsRef.current));
+        }
+        setLastUpdated(new Date());
+        setLoading(false);
+      },
+      (error) => {
+        console.error("Firebase listener error:", error);
+        setIsOnline(false);
+        const mockData = generateMockData();
+        setData(mockData);
+        setAlerts(generateAlerts(mockData, thresholdsRef.current, aiInsightsRef.current));
+        setLoading(false);
+        setLastUpdated(new Date());
+      }
+    );
+
+    fetchAiInsights();
+    const intervalAI = setInterval(fetchAiInsights, 15000);
+
     return () => {
-      clearInterval(intervalData);
+      off(plantRef);
+      unsubscribe();
       clearInterval(intervalAI);
     };
-  }, [fetchData, fetchAiInsights]);
+  }, [processFirebaseData, fetchAiInsights]);
 
   const toggleTheme = () => setTheme(t => t === 'light' ? 'dark' : 'light');
 
