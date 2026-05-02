@@ -522,14 +522,14 @@ const Dashboard = ({ data, latest, loading, aiPrediction, thresholds }) => {
         <div className="device-grid" style={{ marginBottom: '20px' }}>
           <DeviceCard
             name="Cooling Fan" desc="Controls greenhouse ventilation"
-            icon={Fan} device="fan"
-            isOn={controls.fan === 1} onToggle={toggleDevice}
+            icon={Fan} device="pump"
+            isOn={controls.pump === 1} onToggle={toggleDevice}
             activeColor="var(--brand-blue)" activeColorSoft="var(--brand-blue-soft)"
           />
           <DeviceCard
             name="Water Pump" desc="Automated irrigation system"
-            icon={Droplets} device="pump"
-            isOn={controls.pump === 1} onToggle={toggleDevice}
+            icon={Droplets} device="fan"
+            isOn={controls.fan === 1} onToggle={toggleDevice}
             activeColor="var(--brand-green)" activeColorSoft="var(--brand-green-soft)"
           />
         </div>

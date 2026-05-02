@@ -291,9 +291,9 @@ function App() {
         const toggles = JSON.parse(localStorage.getItem('ps-toggles') || '{}');
         if (!toggles.autoWater) return; 
         
-        // 3. Update Firebase directly (updating both UI pump and generic motor paths)
-        // Update plant/pump (used by Dashboard.jsx)
-        await fetch(`https://plant-b5ffc-default-rtdb.asia-southeast1.firebasedatabase.app/plant/pump.json`, {
+        // 3. Update Firebase directly
+        // plant/fan physically controls the water pump (keys are swapped at hardware level)
+        await fetch(`https://plant-b5ffc-default-rtdb.asia-southeast1.firebasedatabase.app/plant/fan.json`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(predictedState)
